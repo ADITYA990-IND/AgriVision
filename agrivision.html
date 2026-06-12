@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriVision – Farmer Meets AI</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --green-deep:#0f3819;--green-mid:#1b5e20;--green-light:#2e7d32;
+    --green-pale:#edf7ed;--green-accent:#00ff66;
+    --beige:#f4f6f4;--beige-dark:#e1e6e1;
+    --white:#ffffff;--text-dark:#0a140d;--text-mid:#2e4233;--text-muted:#556b5a;
+    --red:#ff3333;--amber:#ffaa00;--blue:#3388ff;
+    --shadow:0 8px 32px rgba(10,30,15,0.08);
+    --glass:rgba(255,255,255,0.85);
+    --radius:16px;--sidebar:260px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--beige);color:var(--text-dark);min-height:100vh;overflow-x:hidden;}
+
+  /* ── LOGIN INTERFACE ── */
+  #login-container {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(135deg, #092010 0%, #05140a 100%);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  #login-container::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300ff66' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .login-card {
+    background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 255, 102, 0.15); width: 100%; max-width: 420px;
+    padding: 40px; border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    position: relative; z-index: 2; text-align: center;
+  }
+  .login-header h2 { color: #fff; font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .login-header p { color: var(--green-accent); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 32px; }
+  .login-form .form-group { text-align: left; margin-bottom: 20px; }
+  .login-form label { display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .login-form input { width: 100%; padding: 14px 16px; background: rgba(0,0,0,0.3); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.95rem; transition: all 0.25s; }
+  .login-form input:focus { outline: none; border-color: var(--green-accent); box-shadow: 0 0 12px rgba(0, 255, 102, 0.2); }
+  .login-btn { width: 100%; padding: 14px; background: var(--green-accent); color: #000; border: none; border-radius: 10px; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; margin-top: 10px; }
+  .login-btn:hover { background: #55ff99; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 255, 102, 0.3); }
+  .login-error { color: var(--red); font-size: 0.82rem; font-weight: 600; margin-top: 14px; display: none; }
+  .language-switcher{display:flex;justify-content:flex-end;margin-bottom:16px;}
+  .language-switcher select{background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:10px;padding:10px 12px;font-size:.92rem;cursor:pointer;min-width:150px;}
+
+  /* ── MAIN LAYOUT SYSTEM ── */
+  #app-wrapper { display: none; }
+  #sidebar {
+    width: var(--sidebar); min-width: var(--sidebar); height: 100vh; position: fixed; left: 0; top: 0;
+    background: linear-gradient(160deg, var(--green-deep) 0%, #06170a 100%);
+    display: flex; flex-direction: column; z-index: 100; box-shadow: 4px 0 32px rgba(0,0,0,0.15);
+    transition: transform .3s;
+  }
+  .sidebar-logo{padding:28px 22px 20px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .sidebar-logo h1{color:#fff;font-size:1.5rem;font-weight:800;letter-spacing:-0.5px;}
+  .sidebar-logo p{color:var(--green-accent);font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+  .nav-list{flex:1;padding:18px 0;overflow-y:auto;}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:14px 22px;cursor:pointer;color:rgba(255,255,255,.7);font-size:.9rem;font-weight:600;transition:all .2s;border-left:4px solid transparent;text-decoration:none;}
+  .nav-item:hover{background:rgba(255,255,255,.05);color:#fff;}
+  .nav-item.active{background:rgba(0,255,102,.1);color:var(--green-accent);border-left-color:var(--green-accent);}
+  .nav-icon{font-size:1.1rem;width:20px;text-align:center;}
+  .sidebar-footer{padding:18px 22px;border-top:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);font-size:.75rem; font-weight: 500;}
+
+  #main{margin-left:var(--sidebar);flex:1;min-height:100vh;display:flex;flex-direction:column;}
+  .section{display:none;flex-direction:column;min-height:100vh;}
+  .section.active{display:flex;}
+
+  /* ── UI TOPBAR ── */
+  .topbar{background:var(--white);border-bottom:1px solid var(--beige-dark);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.02);}
+  .topbar h2{font-size:1.25rem;font-weight:800;color:var(--text-dark);letter-spacing: -0.3px;}
+  .topbar-right{display:flex;align-items:center;gap:16px;}
+  .badge{background:var(--green-pale);color:var(--green-light);font-size:.74rem;font-weight:700;padding:5px 14px;border-radius:20px;text-transform: uppercase; letter-spacing: 0.5px;}
+  .hamburger{display:none;background:none;border:none;cursor:pointer;font-size:1.4rem;color:var(--text-dark);}
+  .logout-btn { padding: 6px 12px; border: 1.5px solid var(--beige-dark); background: transparent; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: var(--text-muted); transition: all 0.2s; }
+  .logout-btn:hover { background: #fff1f1; border-color: #ffcccc; color: var(--red); }
+
+  .content{padding:32px;flex:1;}
+
+  /* ── HERO LANDING PANEL ── */
+  .hero{background:linear-gradient(135deg, var(--green-deep) 0%, #0d3617 60%, #07240e 100%);min-height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+  .hero-overlay{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300ff66' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");}
+  .hero-content{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;justify-content:center;padding:60px 80px;}
+  .hero-tag{display:inline-flex;align-items:center;gap:8px;background:rgba(0,255,102,.1);border:1px solid rgba(0,255,102,.25);color:var(--green-accent);font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:6px 16px;border-radius:20px;margin-bottom:28px;width: fit-content;}
+  .hero h1{font-size:clamp(3rem, 6vw, 5.5rem);font-weight:900;color:#fff;line-height:1;letter-spacing:-2px;margin-bottom:20px;}
+  .hero h1 span{color:var(--green-accent);}
+  .hero-tagline{font-size:1.25rem;color:rgba(255,255,255,.75);margin-bottom:40px;font-weight:400;max-width:560px;line-height:1.6;}
+  .hero-btns{display:flex;gap:16px;flex-wrap:wrap;}
+  .btn-primary{background:var(--green-accent);color:#000;font-weight:800;padding:15px 32px;border-radius:10px;border:none;cursor:pointer;transition:all .2s;text-transform:uppercase;font-size:.82rem;letter-spacing: 0.5px;}
+  .btn-primary:hover{background:#55ff99;transform:translateY(-2px);box-shadow: 0 8px 24px rgba(0, 255, 102, 0.3);}
+  .btn-outline{background:transparent;color:#fff;font-weight:700;padding:15px 32px;border-radius:10px;border:2px solid rgba(255,255,255,.25);cursor:pointer;transition:all .2s;text-transform:uppercase;font-size:.82rem;}
+  .btn-outline:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.6);}
+  .hero-stats{display:flex;gap:40px;margin-top:60px;padding-top:40px;border-top:1px solid rgba(255,255,255,.1);}
+  .hero-stat{text-align:left;}
+  .hero-stat strong{display:block;font-size:2.2rem;font-weight:900;color:var(--green-accent);line-height: 1.1;}
+  .hero-stat span{font-size:.75rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px;font-weight: 600;}
+  .hero-visual{position:absolute;right:80px;bottom:60px;width:400px;opacity:.85;z-index: 1;}
+
+  .welcome-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,0.95);border-bottom:1px solid var(--beige-dark);padding:14px 32px;color:var(--text-dark);font-weight:700;font-size:0.95rem;position:sticky;top:0;z-index:60;}
+  .welcome-banner span{display:flex;gap:10px;align-items:center;}
+  .bottom-nav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:100;gap:0;border-top:1px solid rgba(0,0,0,0.08);background:rgba(255,255,255,0.97);backdrop-filter:blur(10px);padding:6px 10px;justify-content:space-between;}
+  .bottom-nav-button{flex:1;min-width:0;border:none;background:transparent;color:var(--text-mid);font-size:0.88rem;font-weight:700;padding:10px 6px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all .2s;}
+  .bottom-nav-button.active,.bottom-nav-button:hover{background:var(--green-pale);color:var(--green-deep);}
+  .bottom-nav-button span{font-size:1.2rem;}
+  .bottom-nav-button small{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;}
+
+  /* ── CONTAINER REFINEMENTS ── */
+  .card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px;border:1px solid var(--beige-dark);}
+  .card-green{background:linear-gradient(135deg,var(--green-pale) 0%,#fff 100%);border:1px solid rgba(76,175,80,.15);}
+  .grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+
+  /* ── TELEMETRY STAT CARDS ── */
+  .stat-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;border:1px solid var(--beige-dark);display:flex;flex-direction:column;gap:10px;}
+  .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;}
+  .stat-value{font-size:2rem;font-weight:800;color:var(--text-dark);letter-spacing: -0.5px;}
+  .stat-label{font-size:.8rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .stat-trend{font-size:.78rem;font-weight:700;}
+  .trend-up{color:var(--green-light);}
+  .trend-down{color:var(--red);}
+
+  .section-head{margin-bottom:28px;}
+  .section-head h2{font-size:1.6rem;font-weight:800;color:var(--text-dark);margin-bottom:6px;letter-spacing: -0.5px;}
+  .section-head p{color:var(--text-muted);font-size:.95rem;}
+
+  /* ── MAP CANVAS FRAMEWORKS ── */
+  #mapContainer{height:460px;border-radius:14px;overflow:hidden;border:1px solid var(--beige-dark);box-shadow: var(--shadow);}
+  .map-tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .map-btn{background:var(--white);border:1.5px solid var(--beige-dark);border-radius:8px;padding:9px 18px;font-size:.85rem;font-weight:700;cursor:pointer;color:var(--text-mid);transition:all .2s;}
+  .map-btn:hover,.map-btn.active{background:var(--green-mid);color:#fff;border-color:var(--green-mid);}
+  .map-legend{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;color:var(--text-muted);}
+  .legend-dot{width:12px;height:12px;border-radius:50%;}
+  .field-info{background:var(--white);border-radius:14px;padding:22px;border:1px solid var(--beige-dark);box-shadow:var(--shadow);}
+  .field-info h4{font-size:.82rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;border-bottom: 1px solid var(--beige-dark); padding-bottom: 6px;}
+  .area-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--beige-dark);}
+  .area-row:last-child{border-bottom:none;}
+  .area-label{font-size:.85rem;color:var(--text-mid);font-weight: 500;}
+  .area-value{font-size:1.05rem;font-weight:700;color:var(--green-light);}
+
+  .chart-wrap{position:relative;height:240px;}
+
+  /* ── DATA DATA TABLE GRID ── */
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  thead tr{background:var(--green-pale);border-bottom:2px solid var(--beige-dark);}
+  th{padding:14px;text-align:left;font-weight:700;color:var(--text-mid);font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px;}
+  td{padding:14px;border-bottom:1px solid var(--beige-dark);color:var(--text-dark);}
+
+  .progress-bar{height:8px;background:var(--beige-dark);border-radius:4px;overflow:hidden;margin-top:6px;}
+  .progress-fill{height:100%;border-radius:4px;transition:width 1s ease;}
+
+  /* ── SYSTEM APP TOAST ── */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--green-deep);color:#fff;padding:16px 24px;border-radius:10px;font-size:.88rem;font-weight:700;z-index:10000;transform:translateY(80px);opacity:0;transition:all .3s;box-shadow:0 12px 32px rgba(0,0,0,0.25);border: 1px solid rgba(0,255,102,0.2);display: flex; align-items: center; gap: 10px;}
+  .toast.show{transform:translateY(0);opacity:1;}
+
+  .drone-canvas-wrap{background:#09140c;border-radius:14px;padding:24px;position:relative;min-height:280px;box-shadow: var(--shadow); border: 1px solid rgba(0,255,102,0.1);}
+  #droneCanvas{border-radius:8px;display:block;width:100%;}
+
+  .site-footer{background:var(--green-deep);color:rgba(255,255,255,.7);padding:40px;margin-top:auto;border-top: 1px solid rgba(255,255,255,0.05);}
+  .footer-content{display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;max-width:1000px;margin: 0 auto;}
+  .footer-brand h3{color:#fff;font-size:1.3rem;font-weight:800;margin-bottom:10px;}
+  .footer-brand p{font-size:.85rem;line-height:1.6;color:rgba(255,255,255,.55);}
+  .footer-col h4{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--green-accent);margin-bottom:14px;}
+  .footer-col ul{list-style:none;}
+  .footer-col ul li{font-size:.85rem;color:rgba(255,255,255,.55);padding:4px 0;}
+  .footer-bottom{margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);font-size:.8rem;color:rgba(255,255,255,.4);display:flex;justify-content:between;flex-wrap:wrap;gap:12px;max-width:1000px;margin-left:auto;margin-right:auto;}
+
+  .contact-form{display:flex;flex-direction:column;gap:16px;}
+  .form-group label{display:block;font-size:.82rem;font-weight:700;color:var(--text-mid);margin-bottom:6px;text-transform: uppercase; letter-spacing: 0.5px;}
+  .form-group input,.form-group textarea,.form-group select{width:100%;padding:12px 16px;border:1.5px solid var(--beige-dark);border-radius:8px;font-size:.9rem;color:var(--text-dark);background:var(--beige);transition:all .2s;font-family:inherit;}
+  .form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--green-mid);background: #fff; box-shadow: 0 0 8px rgba(27,94,32,0.1);}
+  .form-group textarea{height:120px;resize:vertical;}
+  .submit-btn{background:var(--green-mid);color:#fff;border:none;padding:14px 32px;border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;transition:background .2s;align-self:flex-start;text-transform: uppercase; letter-spacing: 0.5px;}
+  .submit-btn:hover{background:var(--green-deep);}
+
+  .team-card{background:var(--white);border-radius:var(--radius);padding:32px 24px;text-align:center;box-shadow:var(--shadow);border:1px solid var(--beige-dark);transition: transform 0.2s;}
+  .team-card:hover { transform: translateY(-4px); }
+  .avatar{width:76px;height:76px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;}
+
+  @media(max-width:1024px){
+    .grid-4{grid-template-columns:repeat(2,1fr);}
+    .grid-3{grid-template-columns:repeat(2,1fr);}
+  }
+  @media(max-width:900px){
+    #sidebar{transform:translateX(-100%);}
+    #sidebar.open{transform:translateX(0);}
+    #main{margin-left:0;padding-bottom:100px;}
+    .hamburger{display:block;}
+    .hero-content{padding:40px 24px;}
+    .hero-visual{display:none;}
+    .content{padding:20px 16px;}
+    .footer-content{grid-template-columns:1fr;}
+    .welcome-banner{padding:12px 16px;font-size:0.9rem;}
+    .bottom-nav{display:flex;}
+  }
+  @media(max-width:600px){
+    .grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}
+    .hero h1{font-size:2.5rem;}
+    .bottom-nav-button{padding:10px 4px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- SECURITY LOGIN INTERFACE GATEWAY -->
+<div id="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <h2>AgriVision</h2>
+      <p data-i18n="secureGateway">Secure Terminal Gateway</p>
+    </div>
+    <div class="language-switcher">
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="en">English</option>
+        <option value="hi">हिंदी</option>
+        <option value="bho">भोजपुरी</option>
+      </select>
+    </div>
+    <div class="login-form">
+      <div class="form-group">
+        <label data-i18n="farmerNameLabel">Farmer Name</label>
+        <input type="text" id="userName" data-i18n-placeholder="enterYourNamePlaceholder" placeholder="Enter your name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label data-i18n="registeredMobileLabel">Registered Mobile Number</label>
+        <input type="tel" id="mobileNumber" data-i18n-placeholder="enterMobilePlaceholder" placeholder="Enter 10-digit mobile number" autocomplete="off" maxlength="10">
+      </div>
+      <div class="form-group">
+        <label data-i18n="securityPasswordLabel">Security Password</label>
+        <input type="password" id="password" data-i18n-placeholder="enterPasswordPlaceholder" placeholder="••••••••">
+      </div>
+      <button class="login-btn" onclick="handleSecureLogin()" data-i18n="verifyCredentials">Verify Credentials</button>
+      <div class="login-error" id="login-error-msg">❌ Access Denied: Invalid Mobile Number or Password</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTAINER RUNTIME ENGINE WRAPPER -->
+<div id="app-wrapper">
+  <!-- SIDEBAR SYSTEM -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <h1>🌾 AgriVision</h1>
+      <p>Farmer Meets AI</p>
+    </div>
+    <div class="nav-list">
+      <a class="nav-item active" onclick="showSection('home')" href="#"><span class="nav-icon">🏠</span>Home</a>
+      <a class="nav-item" onclick="showSection('dashboard')" href="#"><span class="nav-icon">📊</span>Dashboard</a>
+      <a class="nav-item" onclick="showSection('fieldmap')" href="#"><span class="nav-icon">🗺️</span>Field Mapping</a>
+      <a class="nav-item" onclick="showSection('pest')" href="#"><span class="nav-icon">🔬</span>Pest Detection</a>
+      <a class="nav-item" onclick="showSection('nutrient')" href="#"><span class="nav-icon">🌿</span>Nutrient Analysis</a>
+      <a class="nav-item" onclick="showSection('analytics')" href="#"><span class="nav-icon">📈</span>Data Analytics</a>
+      <a class="nav-item" onclick="showSection('contact')" href="#"><span class="nav-icon">📬</span>Contact</a>
+    </div>
+    <div class="sidebar-footer">AgriVision v2.5 · MMMK Team</div>
+  </nav>
+
+  <!-- TOAST ALERTS SYSTEM -->
+  <div class="toast" id="toast"></div>
+
+  <!-- APPLICATION COMPONENT FRAME -->
+  <main id="main">
+    <div class="welcome-banner" id="welcomeBanner">
+      <span data-i18n="welcomeTitle">Welcome to AgriVision</span>
+      <span id="loginUserGreeting" data-i18n="welcomeMessage">Please login to access the smart farm dashboard.</span>
+      <select class="lang-select" onchange="setLanguage(this.value)">
+        <option value="en">English</option>
+        <option value="hi">हिंदी</option>
+        <option value="bho">भोजपुरी</option>
+      </select>
+    </div>
+
+    <!-- ══════ INTERFACE PANEL: HOME ══════ -->
+    <section id="home" class="section active hero">
+      <div class="hero-overlay"></div>
+      <div class="topbar" style="background:rgba(0,0,0,0);border:none;position:absolute;top:0;left:0;right:0;z-index:10;">
+        <button class="hamburger" onclick="toggleSidebar()" style="color:#fff;">☰</button>
+        <div></div>
+        <div class="topbar-right">
+          <span class="badge" data-i18n="secTerminalActive" style="background:rgba(0,255,102,.12);color:var(--green-accent);border:1px solid rgba(0,255,102,.3);">🟢 Sec Terminal Active</span>
+          <button class="logout-btn" onclick="handleLogOut()" style="color:#fff; border-color:rgba(255,255,255,0.2);" data-i18n="disconnect">Disconnect</button>
+        </div>
+      </div>
+      <div class="hero-content">
+        <div class="hero-tag">🌾 AI-Powered Agriculture Platform</div>
+        <h1>Agri<span>Vision</span></h1>
+        <p class="hero-tagline">Farmer Meets AI — Real-time field monitoring, smart pest detection, and precision nutrient analysis powered by IoT and machine learning.</p>
+        <div class="hero-btns">
+          <button class="btn-primary" onclick="showSection('dashboard')">📊 Start Monitoring</button>
+          <button class="btn-outline" onclick="showSection('fieldmap')">🗺️ Explore Features</button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><strong>98.2%</strong><span>Detection Accuracy</span></div>
+          <div class="hero-stat"><strong>2,400+</strong><span>Hectares Mapped</span></div>
+          <div class="hero-stat"><strong>34%</strong><span>Fertilizer Saved</span></div>
+          <div class="hero-stat"><strong>27%</strong><span>Yield Improvement</span></div>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <svg viewBox="0 0 360 300" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="fieldGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#2e7d32" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="#0f3819" stop-opacity="0.1"/>
+            </radialGradient>
+          </defs>
+          <rect x="20" y="60" width="220" height="200" rx="8" fill="url(#fieldGrad)" stroke="rgba(0,255,102,0.2)" stroke-width="1"/>
+          <rect x="28" y="68" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="74" y="68" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="120" y="68" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="166" y="68" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="28" y="110" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="74" y="110" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="120" y="110" width="40" height="36" rx="4" fill="rgba(229,57,53,0.3)" stroke="rgba(229,57,53,0.4)" stroke-width="0.5"/>
+          <rect x="166" y="110" width="40" height="36" rx="4" fill="rgba(229,57,53,0.3)" stroke="rgba(229,57,53,0.4)" stroke-width="0.5"/>
+          <rect x="28" y="152" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="74" y="152" width="40" height="36" rx="4" fill="rgba(229,57,53,0.3)" stroke="rgba(229,57,53,0.4)" stroke-width="0.5"/>
+          <rect x="120" y="152" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <rect x="166" y="152" width="40" height="36" rx="4" fill="rgba(76,175,80,0.4)" stroke="rgba(0,255,102,0.3)" stroke-width="0.5"/>
+          <circle cx="120" cy="128" r="10" fill="rgba(255,255,255,0.95)" stroke="rgba(0,255,102,0.8)" stroke-width="1.5"/>
+          <text x="120" y="132" text-anchor="middle" font-size="10">🚁</text>
+          <circle cx="120" cy="128" r="18" fill="none" stroke="rgba(0,255,102,0.4)" stroke-width="1">
+            <animate attributeName="r" values="10;24" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <line x1="250" y1="90" x2="350" y2="60" stroke="rgba(0,255,102,0.3)" stroke-width="1" stroke-dasharray="4 3"/>
+          <line x1="250" y1="150" x2="350" y2="140" stroke="rgba(0,255,102,0.3)" stroke-width="1" stroke-dasharray="4 3"/>
+          <rect x="255" y="40" width="90" height="55" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(0,255,102,0.2)" stroke-width="0.8"/>
+          <text x="270" y="58" font-size="7" fill="rgba(255,255,255,0.8)" font-weight="bold">📡 GPS LINK</text>
+          <text x="270" y="70" font-size="7" fill="rgba(0,255,102,0.9)">Lat: 26.84°N</text>
+          <text x="270" y="80" font-size="7" fill="rgba(0,255,102,0.9)">Lng: 80.94°E</text>
+          <rect x="255" y="120" width="90" height="55" rx="6" fill="rgba(255,255,255,0.05)" stroke="rgba(0,255,102,0.2)" stroke-width="0.8"/>
+          <text x="270" y="138" font-size="7" fill="rgba(255,255,255,0.8)" font-weight="bold">🔬 ML SCAN</text>
+          <text x="270" y="150" font-size="7" fill="rgba(0,255,102,0.9)">Pest: None</text>
+          <text x="270" y="160" font-size="7" fill="rgba(0,255,102,0.9)">NPK: Optimal</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: DASHBOARD ══════ -->
+    <section id="dashboard" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>📊 Farm Dashboard</h2>
+        </div>
+        <div class="topbar-right">
+          <span class="badge" data-i18n="liveMonitoring">🟢 Live Monitoring</span>
+          <button class="logout-btn" onclick="handleLogOut()" data-i18n="disconnect">Disconnect</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid-4" style="margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e8f5e9;">🌾</div>
+            <div class="stat-value">12.4 ha</div>
+            <div class="stat-label">Total Land Area</div>
+            <div class="stat-trend trend-up">↑ 3 fields active</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e8f5e9;">✅</div>
+            <div class="stat-value">78%</div>
+            <div class="stat-label">Covered Area</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:78%;background:var(--green-light);"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fce4e4;">🐛</div>
+            <div class="stat-value">14%</div>
+            <div class="stat-label">Pest Affected</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:14%;background:var(--red);"></div></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fff8e1;">⚗️</div>
+            <div class="stat-value">22%</div>
+            <div class="stat-label">Nutrient Deficient</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:22%;background:var(--amber);"></div></div>
+          </div>
+        </div>
+
+        <div class="grid-4" style="margin-bottom:24px;">
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e8f5e9;">💧</div>
+            <div class="stat-value">34%</div>
+            <div class="stat-label">Fertilizer Saved</div>
+            <div class="stat-trend trend-up">↑ vs last season</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e8f5e9;">📈</div>
+            <div class="stat-value">+27%</div>
+            <div class="stat-label">Yield Boost</div>
+            <div class="stat-trend trend-up">↑ Estimated</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#e3f2fd;">🚁</div>
+            <div class="stat-value">3</div>
+            <div class="stat-label">Active Drones</div>
+            <div class="stat-trend trend-up">All operational</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background:#fff8e1;">🌡️</div>
+            <div class="stat-value">32°C</div>
+            <div class="stat-label">Field Temp</div>
+            <div class="stat-trend" style="color:var(--amber);">⚠ High Heat Alert</div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:24px;">
+          <div class="card">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:16px; color: var(--text-dark);">Fertilizer Consumption (kg/week)</h3>
+            <div class="chart-wrap"><canvas id="fertChart"></canvas></div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:16px; color: var(--text-dark);">Seasonal Yield (quintals/hectare)</h3>
+            <div class="chart-wrap"><canvas id="yieldChart"></canvas></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:16px; color: var(--text-dark);">Pest Occurrence Trend</h3>
+            <div class="chart-wrap"><canvas id="pestChart"></canvas></div>
+          </div>
+          <div class="card">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:16px; color: var(--text-dark);">Coverage Efficiency (%)</h3>
+            <div class="chart-wrap"><canvas id="coverChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <footer class="site-footer">
+        <div class="footer-bottom">
+          <span>© 2026 AgriVision — Farmer Meets AI</span>
+          <span>Built with ❤️ by MMMK Team</span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: FIELD MAPPING ══════ -->
+    <section id="fieldmap" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>🗺️ Interactive Field Mapping</h2>
+        </div>
+        <div class="topbar-right">
+          <span class="badge" data-i18n="gpsActive">🛰️ GPS Active</span>
+          <button class="logout-btn" onclick="handleLogOut()" data-i18n="disconnect">Disconnect</button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid-2" style="grid-template-columns:1fr 280px;">
+          <div>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+              <input id="locationSearch" type="text" data-i18n-placeholder="searchLocationPlaceholder" placeholder="Search village, district or coordinates (e.g. Lucknow, UP)..." style="flex:1;padding:12px 16px;border:1.5px solid var(--beige-dark);border-radius:8px;font-size:.88rem;background:var(--white);">
+              <button class="map-btn active" onclick="searchLocation()">🔍 Search</button>
+            </div>
+            <div class="map-tools">
+              <button class="map-btn" id="drawBtn" onclick="toggleDraw()">✏️ Draw Field</button>
+              <button class="map-btn" onclick="clearMap()">🗑️ Clear</button>
+              <button class="map-btn" onclick="saveField()">💾 Save Field</button>
+              <button class="map-btn" onclick="showLayer('coverage')">🟢 Coverage Layer</button>
+              <button class="map-btn" onclick="showLayer('pest')">🔴 Pest Layer</button>
+              <button class="map-btn" onclick="showLayer('weed')">🟡 Weed Layer</button>
+              <button class="map-btn" onclick="showLayer('nutrient')">🔵 Nutrient Layer</button>
+            </div>
+            <div id="mapContainer"></div>
+            <div class="map-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#4caf50;"></div>Covered Area</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#e53935;"></div>Pest Outbreak Zone</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f57f17;"></div>Weed Infestation</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#1565c0;"></div>Nutrient Deficiency</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#00ff66;border:2px solid #1b5e20;"></div>Drone Tracking</div>
+            </div>
+          </div>
+          <div>
+            <div class="field-info" style="margin-bottom:16px;">
+              <h4>Calculated Bounds</h4>
+              <div class="area-row"><span class="area-label">Hectares</span><span class="area-value" id="areaHa">—</span></div>
+              <div class="area-row"><span class="area-label">Acres</span><span class="area-value" id="areaAc">—</span></div>
+              <div class="area-row"><span class="area-label">Bigha (UP)</span><span class="area-value" id="areaBi">—</span></div>
+            </div>
+            <div class="field-info" style="margin-bottom:16px;">
+              <h4>Telemetry Nodes</h4>
+              <div id="savedFieldsList" style="font-size:.82rem;color:var(--text-muted); font-weight: 500;">No fields saved yet. Draw boundaries and click Save.</div>
+            </div>
+            <div class="field-info">
+              <h4>GPS Position</h4>
+              <div class="area-row"><span class="area-label">Latitude</span><span class="area-value" id="gpsLat">26.8467°N</span></div>
+              <div class="area-row"><span class="area-label">Longitude</span><span class="area-value" id="gpsLng">80.9462°E</span></div>
+              <div class="area-row"><span class="area-label">Altitude</span><span class="area-value">128 m</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: PEST DETECTION ══════ -->
+    <section id="pest" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>🔬 Pest & Weed Analytics</h2>
+        </div>
+        <div class="topbar-right"><span class="badge" style="background: #fce4e4; color: var(--red);">⚠ 3 Active Alerts</span></div>
+      </div>
+      <div class="content">
+        <div class="grid-2" style="margin-bottom:24px;">
+          <div class="card">
+            <h3 style="font-weight:800;font-size:1rem;margin-bottom:16px;">AI Spatial Computer Vision Map</h3>
+            <canvas id="pestMapCanvas" width="500" height="280" style="width:100%;border-radius:8px;"></canvas>
+            <div class="map-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#e53935;"></div>Critical Severity</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#ff7043;"></div>Medium Risk</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#ffd54f;"></div>Early Action</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#4caf50;"></div>Stable Clear</div>
+            </div>
+          </div>
+          <div>
+            <div class="section-head"><h2>Neural Network Matrix</h2><p>Identified threats from real-time computer vision payload scans</p></div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div class="card" style="border-left:4px solid var(--red);">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                  <div><h4 style="font-size:.95rem;font-weight:700;">🐛 Army Worm Cluster</h4><p style="font-size:.8rem;color:var(--text-muted);">Zone A2 · North Sector</p></div>
+                  <span style="background:#fce4e4;color:var(--red);font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px;">CRITICAL</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:82%;background:var(--red);"></div></div>
+                <p style="font-size:.8rem;color:var(--text-mid);margin-top:6px; font-weight: 500;">Infection Density: 82% · Recommendation: Targeted Spray Sequence</p>
+              </div>
+              <div class="card" style="border-left:4px solid #ff7043;">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                  <div><h4 style="font-size:.95rem;font-weight:700;">🌾 Barnyard Grass Weeds</h4><p style="font-size:.8rem;color:var(--text-muted);">Zone B1 · Mid-South Sector</p></div>
+                  <span style="background:#fff3e0;color:#e65100;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px;">MEDIUM</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:54%;background:#ff7043;"></div></div>
+                <p style="font-size:.8rem;color:var(--text-mid);margin-top:6px; font-weight: 500;">Infection Density: 54% · Recommendation: Mechanical weeding workflow</p>
+              </div>
+              <div class="card" style="border-left:4px solid #ffd54f;">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px;">
+                  <div><h4 style="font-size:.95rem;font-weight:700;">🦟 Thrips Incidents</h4><p style="font-size:.8rem;color:var(--text-muted);">Zone C3 · East Boundary</p></div>
+                  <span style="background:#fffde7;color:#f57f17;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px;">STABLE</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width:28%;background:#ffd54f;"></div></div>
+                <p style="font-size:.8rem;color:var(--text-mid);margin-top:6px; font-weight: 500;">Infection Density: 28% · Recommendation: Regular sensor testing</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-weight:800;margin-bottom:16px;">Precision Payload Core — Drone Path Guidance Tracking</h3>
+          <div class="drone-canvas-wrap">
+            <canvas id="droneCanvas" width="800" height="240"></canvas>
+            <div style="position:absolute;top:16px;left:18px;color:rgba(255,255,255,.9);font-size:.85rem;font-weight:700;letter-spacing: 0.5px;">🚁 Live UAV Telemetry</div>
+            <div style="position:absolute;top:16px;right:18px;display:flex;gap:10px;">
+              <span style="background:rgba(0,255,102,0.2);color:var(--green-accent);border: 1px solid var(--green-accent);font-size:.72rem;padding:4px 12px;border-radius:20px;font-weight:700;">AUTONOMOUS ROUTE</span>
+              <span style="background:rgba(255,255,255,0.1);color:#fff;font-size:.72rem;padding:4px 12px;border-radius:20px;font-weight: 600;" id="droneStatus">Scanning...</span>
+            </div>
+          </div>
+          <p style="font-size:.85rem;color:var(--text-muted);margin-top:14px; line-height: 1.6;">AgriVision IoT stack intercepts manual commercial drone hardware, adapting internal GPS routines into autonomous mapping flights with integrated machine learning analytics payload.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: NUTRIENT ANALYSIS ══════ -->
+    <section id="nutrient" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>🌿 Nutrient Deficiency Analysis</h2>
+        </div>
+        <div class="topbar-right"><span class="badge" style="background:#fff8e1;color:#f57f17;">⚗ Diagnostics Online</span></div>
+      </div>
+      <div class="content">
+        <div class="grid-3" style="margin-bottom:24px;">
+          <div class="stat-card" style="border-top:4px solid #2e7d32;">
+            <div style="font-size:1.4rem;">🌱</div>
+            <div class="stat-value" style="color:#2e7d32;">N</div>
+            <div class="stat-label">Nitrogen Index</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:62%;background:#2e7d32;"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:.78rem;color:var(--text-muted); font-weight: 600;">
+              <span>62% Sufficient</span><span style="color:var(--red);">38% Deficient</span>
+            </div>
+          </div>
+          <div class="stat-card" style="border-top:4px solid #f57f17;">
+            <div style="font-size:1.4rem;">🟠</div>
+            <div class="stat-value" style="color:#f57f17;">P</div>
+            <div class="stat-label">Phosphorus Index</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:75%;background:#f57f17;"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:.78rem;color:var(--text-muted); font-weight: 600;">
+              <span>75% Sufficient</span><span style="color:var(--amber);">25% Deficient</span>
+            </div>
+          </div>
+          <div class="stat-card" style="border-top:4px solid #1565c0;">
+            <div style="font-size:1.4rem;">🔵</div>
+            <div class="stat-value" style="color:#1565c0;">K</div>
+            <div class="stat-label">Potassium Index</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:48%;background:#1565c0;"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:.78rem;color:var(--text-muted); font-weight: 600;">
+              <span>48% Sufficient</span><span style="color:var(--red);">52% Deficient</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3 style="font-weight:800;font-size:1rem;margin-bottom:16px;">Field Chemical Heat Map Matrix</h3>
+            <canvas id="nutrientCanvas" width="500" height="300" style="width:100%;border-radius:8px;"></canvas>
+            <div class="map-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#2e7d32;"></div>Optimal N Layer</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f57f17;"></div>Optimal P Layer</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#1565c0;"></div>Optimal K Layer</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#e53935;"></div>Depleted Chemical Index</div>
+            </div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:16px;">
+              <h3 style="font-weight:800;font-size:1rem;margin-bottom:14px;">Automated Prescription Matrix</h3>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="background:var(--beige);border-radius:8px;padding:12px; border-left: 3px solid #2e7d32;">
+                  <div style="font-size:.85rem;font-weight:700;color:#2e7d32;margin-bottom:4px;">Zone A1 — North Plots</div>
+                  <div style="font-size:.8rem;color:var(--text-muted); font-weight:500;">N: Depleted · P: Normal · K: Low</div>
+                  <div style="font-size:.82rem;color:var(--text-dark);margin-top:4px;font-weight:700;">→ Distribute Urea 45 kg/ha + MOP 30 kg/ha</div>
+                </div>
+                <div style="background:var(--beige);border-radius:8px;padding:12px; border-left: 3px solid #f57f17;">
+                  <div style="font-size:.85rem;font-weight:700;color:#f57f17;margin-bottom:4px;">Zone B2 — Center Grid</div>
+                  <div style="font-size:.8rem;color:var(--text-muted); font-weight:500;">N: Normal · P: Low · K: Normal</div>
+                  <div style="font-size:.82rem;color:var(--text-dark);margin-top:4px;font-weight:700;">→ Distribute DAP 25 kg/ha</div>
+                </div>
+                <div style="background:var(--beige);border-radius:8px;padding:12px; border-left: 3px solid #1565c0;">
+                  <div style="font-size:.85rem;font-weight:700;color:#1565c0;margin-bottom:4px;">Zone C3 — South Bound</div>
+                  <div style="font-size:.8rem;color:var(--text-muted); font-weight:500;">N: Normal · P: Normal · K: Depleted</div>
+                  <div style="font-size:.82rem;color:var(--text-dark);margin-top:4px;font-weight:700;">→ Urgent Actions: Muriate of Potash 60 kg/ha</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="font-weight:800;font-size:1rem;margin-bottom:12px;">Real-time Elemental Ratios</h3>
+              <div class="chart-wrap"><canvas id="npkChart"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: DATA ANALYTICS ══════ -->
+    <section id="analytics" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>📈 Historical Data Analytics</h2>
+        </div>
+        <div class="topbar-right">
+          <select style="padding:8px 16px;border:1px solid var(--beige-dark);border-radius:8px;font-size:.85rem;font-weight:600;background:var(--white); color: var(--text-dark);">
+            <option>2025–26 Season</option><option>2024–25 Season</option><option>2023–24 Season</option>
+          </select>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid-4" style="margin-bottom:24px;">
+          <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;">📊</div><div class="stat-value">48.2</div><div class="stat-label">Avg Yield (q/ha)</div><div class="stat-trend trend-up">↑ 12% vs last yr</div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#e8f5e9;">💰</div><div class="stat-value">₹1.2L</div><div class="stat-label">Resource Saved</div><div class="stat-trend trend-up">↑ 34% Savings</div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#fce4e4;">🌧️</div><div class="stat-value">680 mm</div><div class="stat-label">Season Rainfall</div><div class="stat-trend" style="color:var(--amber); font-weight:700;">Normal Parameters</div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#e3f2fd;">📋</div><div class="stat-value">24</div><div class="stat-label">Log Files Stored</div><div class="stat-trend trend-up">↑ Secure Sync</div></div>
+        </div>
+
+        <div class="grid-2" style="margin-bottom:24px;">
+          <div class="card">
+            <h3 style="font-weight:800;font-size:1rem;margin-bottom:14px;">Seasonal Crop Yield Matrix Evaluation</h3>
+            <div style="height:240px;"><canvas id="seasonChart"></canvas></div>
+          </div>
+          <div class="card">
+            <h3 style="font-weight:800;font-size:1rem;margin-bottom:14px;">Fertilizer Usage Analytics Trends (kg/ha)</h3>
+            <div style="height:240px;"><canvas id="fertTrendChart"></canvas></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="font-weight:800;font-size:1rem;margin-bottom:16px;">Historical Logging System Archive</h3>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead><tr>
+                <th>Season Period</th>
+                <th style="text-align:right;">Mapped Area (ha)</th>
+                <th style="text-align:right;">Yield Metric (q/ha)</th>
+                <th style="text-align:right;">Pest Outbreak Risk</th>
+                <th style="text-align:right;">Gross Inputs Used (kg)</th>
+                <th style="text-align:right;">Efficiency Gains</th>
+              </tr></thead>
+              <tbody id="analyticsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════ INTERFACE PANEL: CONTACT ══════ -->
+    <section id="contact" class="section">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="hamburger" onclick="toggleSidebar()">☰</button>
+          <h2>📬 System Operators Link</h2>
+        </div>
+      </div>
+      <div class="content">
+        <div class="grid-2">
+          <div>
+            <div class="section-head"><h2 data-i18n="getInTouchTitle">Get in Touch</h2><p data-i18n="getInTouchDesc">Reach out to the AgriVision team for technical assistance or deployments.</p></div>
+            <div class="card">
+              <div class="contact-form">
+                <div class="form-group"><label data-i18n="fullName">Full Name</label><input type="text" data-i18n-placeholder="fullNamePlaceholder" placeholder="e.g. Ramesh Kumar"></div>
+                <div class="form-group"><label data-i18n="emailAddress">Email Address</label><input type="email" data-i18n-placeholder="emailAddressPlaceholder" placeholder="ramesh@example.com"></div>
+                <div class="form-group"><label data-i18n="villageDistrict">Village / District</label><input type="text" data-i18n-placeholder="villageDistrictPlaceholder" placeholder="e.g. Barabanki, Uttar Pradesh"></div>
+                <div class="form-group"><label data-i18n="subjectMatrix">Subject Matrix</label>
+                  <select>
+                    <option>Request Demo</option>
+                    <option>Technical Support</option>
+                    <option>Partnership / Collaboration</option>
+                    <option>Feedback</option>
+                  </select>
+                </div>
+                <div class="form-group"><label data-i18n="messageInput">Message Input</label><textarea data-i18n-placeholder="messagePlaceholder" placeholder="Describe your query..."></textarea></div>
+                <button class="submit-btn" onclick="submitContact()" data-i18n="sendMessage">📤 Send Message</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="section-head" style="margin-top:4px;"><h2>Node Information</h2></div>
+            <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px;">
+              <div class="card" style="display:flex;align-items:center;gap:16px;">
+                <div style="font-size:1.6rem;">📍</div>
+                <div><h4 style="font-size:.9rem;font-weight:700;">HQ Hub Labs</h4><p style="font-size:.85rem;color:var(--text-muted);">BBDNIIT Campus, Lucknow, Uttar Pradesh – 226028</p></div>
+              </div>
+              <div class="card" style="display:flex;align-items:center;gap:16px;">
+                <div style="font-size:1.6rem;">📧</div>
+                <div><h4 style="font-size:.9rem;font-weight:700;">System Email</h4><p style="font-size:.85rem;color:var(--text-muted);">agrivision@bbdniit.ac.in</p></div>
+              </div>
+              <div class="card" style="display:flex;align-items:center;gap:16px;">
+                <div style="font-size:1.6rem;">📡</div>
+                <div><h4 style="font-size:.9rem;font-weight:700;">Operational Schedule</h4><p style="font-size:.85rem;color:var(--text-muted);">Mon–Sat · 09:00 – 18:00 IST</p></div>
+              </div>
+            </div>
+            <div class="card card-green">
+              <h4 style="font-weight:800;margin-bottom:14px; font-size: 0.95rem;">🌐 Open-Source Registries</h4>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <span style="background:var(--green-mid);color:#fff;padding:8px 18px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;">GitHub</span>
+                <span style="background:#1565c0;color:#fff;padding:8px 18px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;">LinkedIn</span>
+                <span style="background:#1da1f2;color:#fff;padding:8px 18px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;">Twitter/X</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="section-head" style="margin-top:48px;"><h2>System Authors</h2><p>Core infrastructure architects behind the AgriVision project platform</p></div>
+        <div class="grid-3" style="margin-bottom: 24px;">
+          <div class="team-card">
+            <div class="avatar" style="background:linear-gradient(135deg,var(--green-mid),var(--green-deep));">KS</div>
+            <h3 style="color: var(--text-dark); font-weight: 800;">Kaushlendra Singh</h3>
+            <p style="color: var(--text-muted); font-weight: 600; font-size: 0.82rem; margin-top: 2px;">AI & IoT Architecture Lead</p>
+            <div style="margin-top:12px;font-size:.78rem;color:var(--text-muted); background: var(--beige); padding: 6px; border-radius: 6px;">BBDNIIT Lucknow</div>
+          </div>
+          <div class="team-card">
+            <div class="avatar" style="background:linear-gradient(135deg,#1565c0,#0a3366);">ARC</div>
+            <h3 style="color: var(--text-dark); font-weight: 800;">Aditya Raj Chourasiya</h3>
+            <p style="color: var(--text-muted); font-weight: 600; font-size: 0.82rem; margin-top: 2px;">Backend & Cloud Systems</p>
+            <div style="margin-top:12px;font-size:.78rem;color:var(--text-muted); background: var(--beige); padding: 6px; border-radius: 6px;">BBDNIIT Lucknow</div>
+          </div>
+          <div class="team-card">
+            <div class="avatar" style="background:linear-gradient(135deg,#6a1b9a,#380e54);">SC</div>
+            <h3 style="color: var(--text-dark); font-weight: 800;">Shruti Chauhan</h3>
+            <p style="color: var(--text-muted); font-weight: 600; font-size: 0.82rem; margin-top: 2px;">Frontend Engine Design</p>
+            <div style="margin-top:12px;font-size:.78rem;color:var(--text-muted); background: var(--beige); padding: 6px; border-radius: 6px;">BBDNIIT Lucknow</div>
+          </div>
+        </div>
+      </div>
+      <footer class="site-footer">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <h3>🌾 AgriVision</h3>
+            <p>AI-powered precision agriculture for the modern Indian farmer. Reducing waste, improving yield, empowering agricultural communities.</p>
+          </div>
+          <div class="footer-col">
+            <h4>Platform Core</h4>
+            <ul>
+              <li>Field Mapping Boundary</li><li>Computer Vision Pest Tracking</li><li>NPK Soil Diagnostics</li><li>Yield Analytics</li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Access Endpoints</h4>
+            <ul>
+              <li>agrivision@bbdniit.ac.in</li><li>Lucknow, UP, India</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <span>© 2026 AgriVision — Farmer Meets AI · Made in India 🇮🇳</span>
+          <span>Team: Kaushlendra · Aditya · Shruti</span>
+        </div>
+      </footer>
+    </section>
+
+  </main>
+  <nav class="bottom-nav" id="mobileNav">
+    <button class="bottom-nav-button active" data-section="home" onclick="setBottomNavActive(this); showSection('home');"><span>🏠</span><small data-i18n="navHome">Home</small></button>
+    <button class="bottom-nav-button" data-section="dashboard" onclick="setBottomNavActive(this); showSection('dashboard');"><span>📊</span><small data-i18n="navDashboard">Dashboard</small></button>
+    <button class="bottom-nav-button" data-section="fieldmap" onclick="setBottomNavActive(this); showSection('fieldmap');"><span>🗺️</span><small data-i18n="navFieldmap">Map</small></button>
+    <button class="bottom-nav-button" data-section="contact" onclick="setBottomNavActive(this); showSection('contact');"><span>📬</span><small data-i18n="navContact">Contact</small></button>
+  </nav>
+</div>
+
+<script>
+// ─── SECURE GATEWAY ROUTINES ───
+let currentUserName = '';
+
+function handleSecureLogin() {
+  const name = document.getElementById('userName').value.trim();
+  const mobile = document.getElementById('mobileNumber').value.trim();
+  const pass = document.getElementById('password').value.trim();
+  const errMsg = document.getElementById('login-error-msg');
+
+  const mobilePattern = /^[0-9]{10}$/;
+
+  if (!name) {
+    errMsg.textContent = translations[currentLanguage]?.loginErrorMissingName || '❌ Please enter your name before signing in.';
+    errMsg.style.display = 'block';
+    return;
+  }
+
+  if (mobilePattern.test(mobile) && pass === "12345678") {
+    currentUserName = name;
+    errMsg.style.display = "none";
+    document.getElementById('login-container').style.display = "none";
+    document.getElementById('app-wrapper').style.display = "flex";
+    updateWelcomeBanner();
+    showToast(`🔓 Welcome back, ${currentUserName}! System Active.`);
+    showSection('home');
+  } else {
+    errMsg.textContent = translations[currentLanguage]?.loginErrorInvalidCredentials || '❌ Access Denied: Invalid Name, Mobile Number or Password.';
+    errMsg.style.display = "block";
+    showToast("⚠️ Security Failure: Incorrect Sign-on Tokens");
+  }
+}
+
+function handleLogOut() {
+  currentUserName = '';
+  document.getElementById('userName').value = "";
+  document.getElementById('mobileNumber').value = "";
+  document.getElementById('password').value = "";
+  document.getElementById('app-wrapper').style.display = "none";
+  document.getElementById('login-container').style.display = "flex";
+  updateWelcomeBanner();
+  showToast("🔒 Security Session Closed Safely.");
+}
+
+function updateWelcomeBanner() {
+  const banner = document.getElementById('welcomeBanner');
+  const greetingLine = document.getElementById('loginUserGreeting');
+  if (!banner || !greetingLine) return;
+  if (currentUserName) {
+    const prefix = translations[currentLanguage]?.welcomeUserPrefix || 'Welcome';
+    banner.querySelector('span').textContent = `${prefix}, ${currentUserName}`;
+    greetingLine.textContent = translations[currentLanguage]?.dashboardReady || 'Your smart farm dashboard is ready.';
+  } else {
+    banner.querySelector('span').textContent = translations[currentLanguage]?.welcomeTitle || 'Welcome to AgriVision';
+    greetingLine.textContent = translations[currentLanguage]?.welcomeMessage || 'Please login to access the smart farm dashboard.';
+  }
+}
+
+const translations = {
+  en: {
+    secureGateway: 'Secure Terminal Gateway',
+    farmerNameLabel: 'Farmer Name',
+    registeredMobileLabel: 'Registered Mobile Number',
+    securityPasswordLabel: 'Security Password',
+    verifyCredentials: 'Verify Credentials',
+    welcomeTitle: 'Welcome to AgriVision',
+    welcomeUserPrefix: 'Welcome',
+    welcomeMessage: 'Please login to access the smart farm dashboard.',
+    dashboardReady: 'Your smart farm dashboard is ready.',
+    disconnect: 'Disconnect',
+    secTerminalActive: '🟢 Sec Terminal Active',
+    liveMonitoring: '🟢 Live Monitoring',
+    gpsActive: '🛰️ GPS Active',
+    navHome: 'Home',
+    navDashboard: 'Dashboard',
+    navFieldmap: 'Field Mapping',
+    navPest: 'Pest Detection',
+    navNutrient: 'Nutrient Analysis',
+    navAnalytics: 'Data Analytics',
+    navContact: 'Contact',
+    aiPlatformTag: '🌾 AI-Powered Agriculture Platform',
+    heroTagline: 'Farmer Meets AI — Real-time field monitoring, smart pest detection, and precision nutrient analysis powered by IoT and machine learning.',
+    startMonitoring: '📊 Start Monitoring',
+    exploreFeatures: '🗺️ Explore Features',
+    searchLocationPlaceholder: 'Search village, district or coordinates (e.g. Lucknow, UP)...',
+    fullName: 'Full Name',
+    emailAddress: 'Email Address',
+    villageDistrict: 'Village / District',
+    subjectMatrix: 'Subject Matrix',
+    messageInput: 'Message Input',
+    sendMessage: '📤 Send Message',
+    fullNamePlaceholder: 'e.g. Ramesh Kumar',
+    emailAddressPlaceholder: 'ramesh@example.com',
+    villageDistrictPlaceholder: 'e.g. Barabanki, Uttar Pradesh',
+    messagePlaceholder: 'Describe your query...',
+    getInTouchTitle: 'Get in Touch',
+    getInTouchDesc: 'Reach out to the AgriVision team for technical assistance or deployments.',
+    enterYourNamePlaceholder: 'Enter your name',
+    enterMobilePlaceholder: 'Enter 10-digit mobile number',
+    enterPasswordPlaceholder: '••••••••',
+    loginErrorMissingName: '❌ Please enter your name before signing in.',
+    loginErrorInvalidCredentials: '❌ Access Denied: Invalid Name, Mobile Number or Password.'
+  },
+  hi: {
+    secureGateway: 'सुरक्षित टर्मिनल गेटवे',
+    farmerNameLabel: 'किसान का नाम',
+    registeredMobileLabel: 'पंजीकृत मोबाइल नंबर',
+    securityPasswordLabel: 'सुरक्षा पासवर्ड',
+    verifyCredentials: 'अधिकार सत्यापित करें',
+    welcomeTitle: 'AgriVision में आपका स्वागत है',
+    welcomeUserPrefix: 'स्वागत है',
+    welcomeMessage: 'स्मार्ट फार्म डैशबोर्ड तक पहुंचने के लिए कृपया लॉगिन करें।',
+    dashboardReady: 'आपका स्मार्ट फार्म डैशबोर्ड तैयार है।',
+    disconnect: 'डिस्कनेक्ट',
+    secTerminalActive: '🟢 सिक्योर टर्मिनल सक्रिय',
+    liveMonitoring: '🟢 लाइव मॉनिटरिंग',
+    gpsActive: '🛰️ जीपीएस सक्रिय',
+    navHome: 'होम',
+    navDashboard: 'डैशबोर्ड',
+    navFieldmap: 'फ़ील्ड मैपिंग',
+    navPest: 'कीट पहचान',
+    navNutrient: 'पोषक तत्व विश्लेषण',
+    navAnalytics: 'डेटा एनालिटिक्स',
+    navContact: 'संपर्क',
+    aiPlatformTag: '🌾 एआई-संचालित कृषि प्लेटफ़ॉर्म',
+    heroTagline: 'किसान मिलता है एआई से — रीयल-टाइम फ़ील्ड मॉनिटरिंग, स्मार्ट कीट पहचान और सटीक पोषक तत्व विश्लेषण।',
+    startMonitoring: '📊 निगरानी प्रारंभ करें',
+    exploreFeatures: '🗺️ विशेषताएँ देखें',
+    searchLocationPlaceholder: 'गाँव, जिला या निर्देशांक खोजें (जैसे लखनऊ, यूपी)...',
+    fullName: 'पूरा नाम',
+    emailAddress: 'ईमेल पता',
+    villageDistrict: 'गाँव / जिला',
+    subjectMatrix: 'विषय',
+    messageInput: 'संदेश',
+    sendMessage: '📤 संदेश भेजें',
+    fullNamePlaceholder: 'उदा. रमेश कुमार',
+    emailAddressPlaceholder: 'ramesh@example.com',
+    villageDistrictPlaceholder: 'उदा. बराबंकी, उत्तर प्रदेश',
+    messagePlaceholder: 'अपनी क्वेरी लिखें...',
+    getInTouchTitle: 'संपर्क करें',
+    getInTouchDesc: 'तकनीकी सहायता या परिनियोजन के लिए AgriVision टीम से संपर्क करें।',
+    enterYourNamePlaceholder: 'अपना नाम दर्ज करें',
+    enterMobilePlaceholder: '10 अंकों का मोबाइल नंबर दर्ज करें',
+    enterPasswordPlaceholder: '••••••••',
+    loginErrorMissingName: '❌ साइन इन करने से पहले अपना नाम दर्ज करें।',
+    loginErrorInvalidCredentials: '❌ पहुंच अस्वीकृत: अमान्य नाम, मोबाइल नंबर या पासवर्ड।'
+  },
+  bho: {
+    secureGateway: 'सुरक्षित टर्मिनल गेटवे',
+    farmerNameLabel: 'किसान के नाम',
+    registeredMobileLabel: 'पंजीकृत मोबाइल नंबर',
+    securityPasswordLabel: 'सुरक्षा पासवर्ड',
+    verifyCredentials: 'सत्यापन करीं',
+    welcomeTitle: 'AgriVision में रउआ स्वागत बा',
+    welcomeUserPrefix: 'स्वागत बा',
+    welcomeMessage: 'स्मार्ट फार्म डैशबोर्ड तक पहुंचे खातिर लॉगिन करीं।',
+    dashboardReady: 'रउआ स्मार्ट फार्म डैशबोर्ड तैयार बा।',
+    disconnect: 'डिस्कनेक्ट',
+    secTerminalActive: '🟢 सिक्योर टर्मिनल सक्रिय बा',
+    liveMonitoring: '🟢 लाइव मॉनिटरिंग',
+    gpsActive: '🛰️ जीपीएस सक्रिय बा',
+    navHome: 'होम',
+    navDashboard: 'डैशबोर्ड',
+    navFieldmap: 'फ़ील्ड मैपिंग',
+    navPest: 'कीट खोज',
+    navNutrient: 'पोषक तत्व विश्लेषण',
+    navAnalytics: 'डेटा एनालिटिक्स',
+    navContact: 'संपर्क',
+    aiPlatformTag: '🌾 एआई-सक्षम कृषि प्लेटफ़ॉर्म',
+    heroTagline: 'किसान एआई से मिलेला — रियल-टाइम फ़ील्ड मॉनिटरिंग, स्मार्ट कीट पहचान आ सटीक पोषक तत्व विश्लेषण।',
+    startMonitoring: '📊 मॉनिटरिंग चालू करीं',
+    exploreFeatures: '🗺️ फ़ीचर देखीं',
+    searchLocationPlaceholder: 'गांव, जिला या निर्देशांक खोजीं (जैसे लखनऊ, यूपी)...',
+    fullName: 'पूरा नाम',
+    emailAddress: 'ईमेल पता',
+    villageDistrict: 'गांव / जिला',
+    subjectMatrix: 'विषय',
+    messageInput: 'संदेश',
+    sendMessage: '📤 संदेश भेजीं',
+    fullNamePlaceholder: 'उदा. रमेश कुमार',
+    emailAddressPlaceholder: 'ramesh@example.com',
+    villageDistrictPlaceholder: 'उदा. बराबंकी, उत्तर प्रदेश',
+    messagePlaceholder: 'अपना सवाल लिखीं...',
+    getInTouchTitle: 'संपर्क करीं',
+    getInTouchDesc: 'तकनीकी सहायता या डिप्लॉयमेंट खातिर AgriVision टीम से संपर्क करीं।',
+    enterYourNamePlaceholder: 'अपना नाम दर्ज करीं',
+    enterMobilePlaceholder: '10 अंकर मोबाइल नंबर दर्ज करीं',
+    enterPasswordPlaceholder: '••••••••',
+    loginErrorMissingName: '❌ साइन इन से पहिले आपन नाम डालल जाव।',
+    loginErrorInvalidCredentials: '❌ पहुँच नाहिं: गलत नाम, मोबाइल नंबर या पासवर्ड।'
+  }
+};
+
+function setLanguage(lang) {
+  if (!translations[lang]) lang = 'en';
+  currentLanguage = lang;
+  document.querySelectorAll('.lang-select').forEach(el => el.value = lang);
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (key && translations[lang][key] !== undefined) el.textContent = translations[lang][key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (key && translations[lang][key] !== undefined) el.placeholder = translations[lang][key];
+  });
+  updateWelcomeBanner();
+}
+
+setLanguage('en');
+
+function setBottomNavActive(button) {
+  document.querySelectorAll('.bottom-nav-button').forEach(b => b.classList.remove('active'));
+  button.classList.add('active');
+}
+
+// Allow Enter-Key Submit on Login Fields
+document.getElementById('password').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') handleSecureLogin();
+});
+
+// ─── INTERFACE NAVIGATION CONTROLS ───
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-button').forEach(b => b.classList.remove('active'));
+  const sec = document.getElementById(id);
+  if(sec) sec.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")) n.classList.add('active');
+  });
+  document.querySelectorAll('.bottom-nav-button').forEach(b => {
+    if(b.dataset.section === id) b.classList.add('active');
+  });
+  if(window.innerWidth < 900) document.getElementById('sidebar').classList.remove('open');
+  
+  // Section Initializations
+  if(id==='dashboard') initDashboardCharts();
+  if(id==='fieldmap') initMap();
+  if(id==='pest') { drawPestMap(); initDroneAnim(); }
+  if(id==='nutrient') { drawNutrientMap(); initNpkChart(); }
+  if(id==='analytics') initAnalyticsCharts();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.innerHTML=`<span>⚡</span> ${msg}`; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ─── CHART ANALYTICS COMPILER ───
+let dashChartsInit=false;
+function initDashboardCharts(){
+  if(dashChartsInit) return; dashChartsInit=true;
+  const weeks=['W1','W2','W3','W4','W5','W6','W7','W8'];
+  mkChart('fertChart','bar',weeks,[{label:'Fertilizer Used (kg)',data:[120,145,110,138,155,140,128,160],backgroundColor:'rgba(27,94,32,0.7)',borderRadius:6}]);
+  mkChart('yieldChart','line',['Kharif 23','Rabi 23','Kharif 24','Rabi 24','Kharif 25','Rabi 25'],[{label:'Yield Metric',data:[38,42,40,45,44,48],borderColor:'#2e7d32',backgroundColor:'rgba(46,125,50,0.06)',tension:.4,fill:true}]);
+  mkChart('pestChart','line',weeks,[{label:'Pest Incidents',data:[4,6,8,5,3,7,4,2],borderColor:'#ff3333',backgroundColor:'rgba(255,51,51,0.05)',tension:.4,fill:true}]);
+  mkChart('coverChart','bar',['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],[{label:'Coverage %',data:[70,72,75,78,80,82,85],backgroundColor:'rgba(27,94,32,0.6)',borderRadius:6}]);
+}
+
+function mkChart(id,type,labels,datasets){
+  const el=document.getElementById(id);
+  if(!el) return;
+  new Chart(el,{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.03)'}},x:{grid:{display:false}}}}});
+}
+
+// ─── SPATIAL GEOGRAPHIC LAYERS (LEAFLET) ───
+let map,drawnPolygon,drawMode=false,drawnPoints=[],savedFields=[];
+let coverageLayer,pestLayer,weedLayer,nutrientLayer;
+
+function initMap(){
+  if(map) return;
+  map = L.map('mapContainer').setView([26.8467,80.9462],14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+  const droneIcon = L.divIcon({html:'<div style="background:#00ff66;border:3px solid #fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(0,255,102,0.8);font-size:11px;">🚁</div>',className:'',iconSize:[24,24]});
+  const droneMarker = L.marker([26.8467,80.9462],{icon:droneIcon}).addTo(map).bindPopup('<b>Active Node 01 UAV</b>');
+
+  let dPos = 0;
+  const path=[[26.8467,80.9462],[26.8481,80.9472],[26.8493,80.9501],[26.8472,80.9523],[26.8451,80.9492],[26.8467,80.9462]];
+  setInterval(()=>{
+    dPos=(dPos+1)%path.length;
+    droneMarker.setLatLng(path[dPos]);
+    if(document.getElementById('gpsLat')){
+      document.getElementById('gpsLat').textContent=path[dPos][0].toFixed(4)+'°N';
+      document.getElementById('gpsLng').textContent=path[dPos][1].toFixed(4)+'°E';
+    }
+  },2000);
+
+  map.on('click',function(e){
+    if(!drawMode) return;
+    drawnPoints.push([e.latlng.lat,e.latlng.lng]);
+    if(drawnPolygon) map.removeLayer(drawnPolygon);
+    if(drawnPoints.length>1){
+      drawnPolygon=L.polygon(drawnPoints,{color:'#1b5e20',weight:2,fillColor:'rgba(46,125,50,0.25)'}).addTo(map);
+      updateArea();
+    } else {
+      L.circleMarker(e.latlng,{radius:5,color:'#1b5e20',fillColor:'#00ff66',fillOpacity:1}).addTo(map);
+    }
+  });
+
+  addDemoLayers();
+}
+
+function addDemoLayers(){
+  const cp=[[26.845,80.944],[26.848,80.949]];
+  const pp=[[26.847,80.948],[26.849,80.952]];
+  const wp=[[26.844,80.946],[26.846,80.950]];
+  const np=[[26.848,80.944],[26.850,80.947]];
+
+  coverageLayer=L.rectangle(cp,{color:'#4caf50',weight:1,fillOpacity:.25,fillColor:'#4caf50'}).addTo(map).bindPopup('Coverage Mapping Layer Active');
+  pestLayer=L.rectangle(pp,{color:'#e53935',weight:1,fillOpacity:.2,fillColor:'#e53935'}).bindPopup('Pest Detection Layer Active');
+  weedLayer=L.rectangle(wp,{color:'#f57f17',weight:1,fillOpacity:.2,fillColor:'#f57f17'}).bindPopup('Weed Mapping Layer Active');
+  nutrientLayer=L.rectangle(np,{color:'#1565c0',weight:1,fillOpacity:.2,fillColor:'#1565c0'}).bindPopup('Nutrient Disruption Layer Active');
+}
+
+function showLayer(type){
+  [coverageLayer,pestLayer,weedLayer,nutrientLayer].forEach(l=>{if(l&&map.hasLayer(l))map.removeLayer(l);});
+  const layers={coverage:coverageLayer,pest:pestLayer,weed:weedLayer,nutrient:nutrientLayer};
+  if(layers[type]&&!map.hasLayer(layers[type])) layers[type].addTo(map);
+  showToast('Swapped to layer matrix: '+type);
+}
+
+// ─── VECTOR METRICS DRAWER ───
+function toggleDraw(){
+  drawMode=!drawMode;
+  document.getElementById('drawBtn').style.background=drawMode?'var(--green-mid)':'';
+  document.getElementById('drawBtn').style.color=drawMode?'#fff':'';
+  showToast(drawMode?'Draw Engine Enabled. Map boundary coordinate vertices.':'Vector drawing disabled');
+}
+
+function clearMap(){
+  drawnPoints=[];
+  if(drawnPolygon){map.removeLayer(drawnPolygon);drawnPolygon=null;}
+  document.getElementById('areaHa').textContent='—';
+  document.getElementById('areaAc').textContent='—';
+  document.getElementById('areaBi').textContent='—';
+  showToast('Boundary clean sequence executed.');
+}
+
+function updateArea(){
+  if(!drawnPolygon) return;
+  const latlngs=drawnPolygon.getLatLngs()[0];
+  let area=estimateArea(latlngs);
+  const ha=(area/10000).toFixed(3);
+  const ac=(area/4047).toFixed(3);
+  const bi=(area/2529.28).toFixed(3);
+  document.getElementById('areaHa').textContent=ha+' ha';
+  document.getElementById('areaAc').textContent=ac+' acres';
+  document.getElementById('areaBi').textContent=bi+' bigha';
+}
+
+function estimateArea(latlngs){
+  let area=0; const n=latlngs.length;
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    const xi=latlngs[i].lng*111320*Math.cos(latlngs[i].lat*Math.PI/180);
+    const yi=latlngs[i].lat*110540;
+    const xj=latlngs[j].lng*111320*Math.cos(latlngs[j].lat*Math.PI/180);
+    const yj=latlngs[j].lat*110540;
+    area+=xi*yj-xj*yi;
+  }
+  return Math.abs(area/2);
+}
+
+function saveField(){
+  if(!drawnPolygon || drawnPoints.length<3){showToast('⚠ Error: Insufficient Polygon Vertices');return;}
+  const ha=document.getElementById('areaHa').textContent;
+  const name='Node Field '+(savedFields.length+1);
+  savedFields.push({name,ha});
+  const list=document.getElementById('savedFieldsList');
+  list.innerHTML=savedFields.map(f=>`<div style="background:var(--beige);border-radius:6px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:between; font-weight:600;"><span>${f.name}</span><span style="color:var(--green-mid);">${f.ha}</span></div>`).join('');
+  showToast('✅ Mapped Dataset saved inside matrix: '+name);
+}
+
+function searchLocation(){
+  const q=document.getElementById('locationSearch').value.trim();
+  if(!q) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q))
+    .then(r=>r.json()).then(data=>{
+      if(data && data[0]){
+        const lat=parseFloat(data[0].lat),lng=parseFloat(data[0].lon);
+        map.setView([lat,lng],15);
+        showToast('📍 Re-centered coordinate reference link');
+      } else { showToast('❌ Remote location lookup failed.'); }
+    }).catch(()=>showToast('❌ Server lookup timeout'));
+}
+
+// ─── COMPUTER VISION HEATMAP ───
+function drawPestMap(){
+  const c=document.getElementById('pestMapCanvas'); if(!c) return;
+  const ctx=c.getContext('2d'); const W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#edf7ed'; ctx.fillRect(0,0,W,H);
+  
+  const cols=10,rows=6,cw=W/cols,ch=H/rows;
+  const severity=[
+    [0,0,1,0,0,0,0,0,0,0], [0,1,3,2,0,0,0,0,0,0], [1,3,3,3,2,0,0,1,0,0],
+    [0,2,3,3,2,1,0,0,0,0], [0,0,2,2,1,0,0,0,0,0], [0,0,1,0,0,0,0,0,0,0],
+  ];
+  const colors=['#4caf50','#ffd54f','#ff7043','#e53935'];
+  for(let r=0;r<rows;r++){
+    for(let col=0;col<cols;col++){
+      ctx.fillStyle=colors[severity[r][col]];
+      ctx.globalAlpha=severity[r][col]===0?0.2:0.65;
+      ctx.fillRect(col*cw+2,r*ch+2,cw-4,ch-4); ctx.globalAlpha=1;
+    }
+  }
+}
+
+// ─── UAV ROUTE SIMULATOR ENGINE ───
+let droneAnim=null;
+function initDroneAnim(){
+  const c=document.getElementById('droneCanvas'); if(!c||droneAnim) return;
+  const ctx=c.getContext('2d'); const W=c.width,H=c.height;
+  const pathPts=[[60,60],[200,60],[200,120],[350,120],[350,60],[500,60],[500,160],[200,160],[200,200],[620,200]];
+  let t=0;
+
+  function drawField(){
+    ctx.fillStyle='#07140a'; ctx.fillRect(0,0,W,H);
+    for(let i=0;i<8;i++){
+      ctx.strokeStyle=i%2===0?'rgba(46,125,50,0.3)':'rgba(27,94,32,0.15)';
+      ctx.lineWidth=18; ctx.beginPath();ctx.moveTo(60,40+i*25);ctx.lineTo(700,40+i*25);ctx.stroke();
+    }
+    ctx.lineWidth=1; ctx.strokeStyle='rgba(0,255,102,0.3)'; ctx.setLineDash([6,4]);
+    ctx.beginPath(); pathPts.forEach((p,i)=>i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1])); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  droneAnim=setInterval(()=>{
+    t=(t+0.003)%1; drawField();
+    const seg=Math.floor(t*(pathPts.length-1)), f=(t*(pathPts.length-1))-seg;
+    const a=pathPts[Math.min(seg,pathPts.length-2)], b=pathPts[Math.min(seg+1,pathPts.length-1)];
+    const px=a[0]+(b[0]-a[0])*f, py=a[1]+(b[1]-a[1])*f;
+
+    ctx.fillStyle='rgba(0,255,102,0.15)'; ctx.fillRect(px-30,py-8,60,16);
+    ctx.fillStyle='#fff'; ctx.beginPath();ctx.arc(px,py,9,0,Math.PI*2);ctx.fill();
+    ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.fillText('🚁',px,py+4);
+    document.getElementById('droneStatus').textContent='Flying Array: '+Math.round(t*100)+'%';
+  },30);
+}
+
+// ─── CHEMICAL DENSITY PLOTS ───
+function drawNutrientMap(){
+  const c=document.getElementById('nutrientCanvas'); if(!c) return;
+  const ctx=c.getContext('2d'); const W=c.width,H=c.height;
+  ctx.fillStyle='#edf7ed'; ctx.fillRect(0,0,W,H);
+  const zones=[
+    {x:30,y:30,w:130,h:100,color:'#e53935',label:'K Low'},{x:170,y:30,w:110,h:100,color:'#2e7d32',label:'N Optimal'},
+    {x:290,y:30,w:120,h:100,color:'#f57f17',label:'P Deficit'},{x:420,y:30,w:60,h:100,color:'#2e7d32',label:'Stable'}
+  ];
+  zones.forEach(z=>{
+    ctx.fillStyle=z.color; ctx.globalAlpha=0.45; ctx.fillRect(z.x,z.y,z.w,z.h);
+    ctx.globalAlpha=1; ctx.strokeStyle='#fff'; ctx.strokeRect(z.x,z.y,z.w,z.h);
+    ctx.fillStyle='#000'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText(z.label,z.x+z.w/2,z.y+z.h/2);
+  });
+}
+
+let npkChartInit=false;
+function initNpkChart(){
+  if(npkChartInit) return; npkChartInit=true;
+  mkChart('npkChart','bar',['Zone A1','Zone A2','Zone A3','Zone B1','Zone B2','Zone B3'],[
+    {label:'N Component',data:[28,56,48,60,42,38],backgroundColor:'#2e7d32'},
+    {label:'P Component',data:[22,38,52,44,28,35],backgroundColor:'#f57f17'},
+    {label:'K Component',data:[12,40,35,50,18,44],backgroundColor:'#1565c0'}
+  ]);
+}
+
+// ─── TREND INTERPOLATION PLOTS ───
+let analyticsInit=false;
+function initAnalyticsCharts(){
+  if(analyticsInit) return; analyticsInit=true;
+  new Chart(document.getElementById('seasonChart'),{type:'bar',data:{labels:['Kharif 23','Rabi 23','Kharif 24','Rabi 24','Kharif 25','Rabi 25'],datasets:[{label:'Manual Methods',data:[32,36,33,37,34,38],backgroundColor:'#b0bec5'},{label:'AgriVision AI Engine',data:[38,42,40,45,44,48],backgroundColor:'#2e7d32'}]},options:{responsive:true,maintainAspectRatio:false}});
+  new Chart(document.getElementById('fertTrendChart'),{type:'line',data:{labels:['Kharif 23','Rabi 23','Kharif 24','Rabi 24','Kharif 25','Rabi 25'],datasets:[{label:'Standard Distribution',data:[280,310,295,320,305,330],borderColor:'#ff3333',tension:.4},{label:'AgriVision Metrics',data:[280,260,245,240,230,220],borderColor:'#2e7d32',tension:.4}]},options:{responsive:true,maintainAspectRatio:false}});
+  
+  const datasetRows=[
+    ['Kharif 2023','10.2','38.2','18%','2856','—'],
+    ['Rabi 2023–24','10.2','42.4','12%','2650','7.2%'],
+    ['Kharif 2024','11.8','40.1','15%','2890','—'],
+    ['Rabi 2024–25','11.8','45.2','9%','2820','12.1%'],
+    ['Kharif 2025','12.4','44.3','14%','2760','—'],
+    ['Rabi 2025–26','12.4','48.2','8%','2720','27.4%'],
+  ];
+  document.getElementById('analyticsTable').innerHTML=datasetRows.map((r,i)=>`<tr style="background:${i%2?'var(--beige)':'var(--white)'};">
+    <td style="font-weight:700;">${r[0]}</td><td>${r[1]}</td><td style="font-weight:700;color:var(--green-light);">${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td style="font-weight:700;color:var(--green-light);">${r[5]}</td>
+  </tr>`).join('');
+}
+
+function submitContact(){
+  showToast("📨 Transmitting package data over secure payload channel successfully.");
+}
+</script>
+
+</body>
+</html>
